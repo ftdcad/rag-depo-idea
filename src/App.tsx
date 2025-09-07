@@ -55,6 +55,101 @@ function App() {
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [showAPIKeys, setShowAPIKeys] = useState<{[key: string]: boolean}>({});
 
+  // Form data for create/edit modal
+  const [formData, setFormData] = useState<Partial<AIInstance>>({
+    name: '',
+    department: '',
+    description: '',
+    status: 'inactive' as AIInstance['status'],
+    ragConfig: {
+      knowledgeBase: [],
+      vectorDB: 'pinecone',
+      embeddingModel: 'text-embedding-ada-002',
+      chunkSize: 1000,
+      overlap: 200
+    },
+    apiKeys: {
+      llmProvider: '',
+      llmKey: '',
+      portalAPI: '',
+      customAPIs: {}
+    },
+    systemPrompt: '',
+    portalAccess: [],
+    lastUpdated: new Date().toISOString(),
+    metrics: {
+      queries: 0,
+      accuracy: 0,
+      avgResponseTime: 0,
+      userSatisfaction: 0
+    }
+  });
+
+  const resetFormData = () => {
+    setFormData({
+      name: '',
+      department: '',
+      description: '',
+      status: 'inactive' as AIInstance['status'],
+      ragConfig: {
+        knowledgeBase: [],
+        vectorDB: 'pinecone',
+        embeddingModel: 'text-embedding-ada-002',
+        chunkSize: 1000,
+        overlap: 200
+      },
+      apiKeys: {
+        llmProvider: '',
+        llmKey: '',
+        portalAPI: '',
+        customAPIs: {}
+      },
+      systemPrompt: '',
+      portalAccess: [],
+      lastUpdated: new Date().toISOString(),
+      metrics: {
+        queries: 0,
+        accuracy: 0,
+        avgResponseTime: 0,
+        userSatisfaction: 0
+      }
+    });
+  };
+
+  const handleSaveInstance = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (editingInstance) {
+      // Update existing instance
+      setAIInstances(prev => prev.map(instance => 
+        instance.id === editingInstance.id 
+          ? { ...instance, ...formData, lastUpdated: new Date().toISOString() }
+          : instance
+      ));
+    } else {
+      // Create new instance
+      const newInstance: AIInstance = {
+        ...formData as AIInstance,
+        id: `ai-${Date.now()}`,
+        lastUpdated: new Date().toISOString()
+      };
+      setAIInstances(prev => [...prev, newInstance]);
+    }
+    
+    setShowCreateModal(false);
+    setEditingInstance(null);
+    resetFormData();
+  };
+
+  // Load form data when editing
+  useEffect(() => {
+    if (editingInstance) {
+      setFormData(editingInstance);
+    } else {
+      resetFormData();
+    }
+  }, [editingInstance]);
+
   // Initialize with sample data
   useEffect(() => {
     const sampleDepartments: Department[] = [
