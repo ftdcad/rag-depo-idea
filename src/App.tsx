@@ -12,6 +12,11 @@ interface AIInstance {
   department: string;
   description: string;
   status: 'active' | 'inactive' | 'deploying' | 'error';
+  model: string;
+  goal: string;
+  instructions: string;
+  documents: string;
+  apiKey: string;
   ragConfig: {
     knowledgeBase: string[];
     vectorDB: string;
@@ -51,69 +56,52 @@ function App() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingInstance, setEditingInstance] = useState<AIInstance | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [showAPIKeys, setShowAPIKeys] = useState<{[key: string]: boolean}>({});
 
   // Form data for create/edit modal
-  const [formData, setFormData] = useState<Partial<AIInstance>>({
+  const [formData, setFormData] = useState({
     name: '',
     department: '',
-    description: '',
-    status: 'inactive' as AIInstance['status'],
-    ragConfig: {
-      knowledgeBase: [],
-      vectorDB: 'pinecone',
-      embeddingModel: 'text-embedding-ada-002',
-      chunkSize: 1000,
-      overlap: 200
-    },
-    apiKeys: {
-      llmProvider: '',
-      llmKey: '',
-      portalAPI: '',
-      customAPIs: {}
-    },
-    systemPrompt: '',
-    portalAccess: [],
-    lastUpdated: new Date().toISOString(),
-    metrics: {
-      queries: 0,
-      accuracy: 0,
-      avgResponseTime: 0,
-      userSatisfaction: 0
-    }
+    model: 'gpt-4',
+    goal: '',
+    instructions: '',
+    documents: '',
+    apiKey: ''
   });
 
   const resetFormData = () => {
     setFormData({
       name: '',
       department: '',
-      description: '',
-      status: 'inactive' as AIInstance['status'],
-      ragConfig: {
-        knowledgeBase: [],
-        vectorDB: 'pinecone',
-        embeddingModel: 'text-embedding-ada-002',
-        chunkSize: 1000,
-        overlap: 200
-      },
-      apiKeys: {
-        llmProvider: '',
-        llmKey: '',
-        portalAPI: '',
-        customAPIs: {}
-      },
-      systemPrompt: '',
-      portalAccess: [],
-      lastUpdated: new Date().toISOString(),
-      metrics: {
-        queries: 0,
-        accuracy: 0,
-        avgResponseTime: 0,
-        userSatisfaction: 0
-      }
+      model: 'gpt-4',
+      goal: '',
+      instructions: '',
+      documents: '',
+      apiKey: ''
     });
+  };
+
+  const handleEdit = (instance: AIInstance) => {
+    setEditingInstance(instance);
+    setFormData({
+      name: instance.name,
+      department: instance.department,
+      model: instance.model,
+      goal: instance.goal,
+      instructions: instance.instructions,
+      documents: instance.documents,
+      apiKey: instance.apiKey
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditingInstance(null);
+    resetFormData();
   };
 
   const handleSaveInstance = (e: React.FormEvent) => {
@@ -123,32 +111,60 @@ function App() {
       // Update existing instance
       setAIInstances(prev => prev.map(instance => 
         instance.id === editingInstance.id 
-          ? { ...instance, ...formData, lastUpdated: new Date().toISOString() }
+          ? { 
+              ...instance, 
+              name: formData.name,
+              department: formData.department,
+              model: formData.model,
+              goal: formData.goal,
+              instructions: formData.instructions,
+              documents: formData.documents,
+              apiKey: formData.apiKey,
+              lastUpdated: new Date().toISOString() 
+            }
           : instance
       ));
     } else {
       // Create new instance
       const newInstance: AIInstance = {
-        ...formData as AIInstance,
         id: `ai-${Date.now()}`,
-        lastUpdated: new Date().toISOString()
+        name: formData.name,
+        department: formData.department,
+        description: formData.goal,
+        status: 'inactive',
+        model: formData.model,
+        goal: formData.goal,
+        instructions: formData.instructions,
+        documents: formData.documents,
+        apiKey: formData.apiKey,
+        ragConfig: {
+          knowledgeBase: [],
+          vectorDB: 'pinecone',
+          embeddingModel: 'text-embedding-ada-002',
+          chunkSize: 1000,
+          overlap: 200
+        },
+        apiKeys: {
+          llmProvider: formData.model,
+          llmKey: formData.apiKey,
+          portalAPI: '',
+          customAPIs: {}
+        },
+        systemPrompt: formData.instructions,
+        portalAccess: [],
+        lastUpdated: new Date().toISOString(),
+        metrics: {
+          queries: 0,
+          accuracy: 0,
+          avgResponseTime: 0,
+          userSatisfaction: 0
+        }
       };
       setAIInstances(prev => [...prev, newInstance]);
     }
     
-    setShowCreateModal(false);
-    setEditingInstance(null);
-    resetFormData();
+    handleCloseModal();
   };
-
-  // Load form data when editing
-  useEffect(() => {
-    if (editingInstance) {
-      setFormData(editingInstance);
-    } else {
-      resetFormData();
-    }
-  }, [editingInstance]);
 
   // Initialize with sample data
   useEffect(() => {
@@ -194,6 +210,11 @@ function App() {
         department: 'claims',
         description: 'Specialized AI for hurricane and weather-related claims processing',
         status: 'active',
+        model: 'gpt-4',
+        goal: 'Process hurricane and weather-related claims efficiently',
+        instructions: 'You are a hurricane claims specialist with deep knowledge of catastrophic weather events...',
+        documents: 'hurricane-procedures.pdf, weather-claims-db.json, catastrophe-protocols.docx',
+        apiKey: 'sk-...hidden',
         ragConfig: {
           knowledgeBase: ['hurricane-procedures', 'weather-claims-db', 'catastrophe-protocols'],
           vectorDB: 'pinecone-claims',
@@ -218,38 +239,6 @@ function App() {
           accuracy: 94.2,
           avgResponseTime: 1.8,
           userSatisfaction: 4.6
-        }
-      },
-      {
-        id: 'underwriting-ai-1',
-        name: 'Property Risk Analyzer',
-        department: 'underwriting',
-        description: 'AI for property risk assessment and premium calculations',
-        status: 'active',
-        ragConfig: {
-          knowledgeBase: ['risk-models', 'property-data', 'market-trends'],
-          vectorDB: 'chroma-underwriting',
-          embeddingModel: 'text-embedding-ada-002',
-          chunkSize: 800,
-          overlap: 150
-        },
-        apiKeys: {
-          llmProvider: 'anthropic',
-          llmKey: 'sk-ant-...hidden',
-          portalAPI: 'ccs-portal-key-2',
-          customAPIs: {
-            'property-records': 'prop-api-key-1',
-            'credit-score': 'credit-api-key-1'
-          }
-        },
-        systemPrompt: 'You are a property underwriting assistant specializing in risk assessment...',
-        portalAccess: ['underwriting-module', 'risk-tools', 'pricing-engine'],
-        lastUpdated: '2024-01-14T15:45:00Z',
-        metrics: {
-          queries: 856,
-          accuracy: 97.1,
-          avgResponseTime: 2.3,
-          userSatisfaction: 4.8
         }
       }
     ];
@@ -393,63 +382,6 @@ function App() {
                 </div>
               </div>
             </div>
-
-            {/* Department Overview */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Departments & AI Distribution</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {departments.map((dept) => {
-                  const deptAIs = aiInstances.filter(ai => ai.department === dept.id);
-                  const activeAIs = deptAIs.filter(ai => ai.status === 'active');
-                  
-                  return (
-                    <div key={dept.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <div className={`${dept.color} w-8 h-8 rounded-full flex items-center justify-center text-white text-sm`}>
-                          {dept.icon}
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">{dept.name}</h4>
-                          <p className="text-sm text-gray-600">{deptAIs.length} AI instances</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Active:</span>
-                          <span className="text-green-600 font-medium">{activeAIs.length}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Inactive:</span>
-                          <span className="text-gray-600">{deptAIs.length - activeAIs.length}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-              <div className="space-y-4">
-                {aiInstances.slice(0, 5).map((instance) => (
-                  <div key={instance.id} className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${instance.status === 'active' ? 'bg-green-400' : 'bg-gray-400'}`}></div>
-                      <div>
-                        <p className="font-medium text-gray-900">{instance.name}</p>
-                        <p className="text-sm text-gray-600">{getDepartmentInfo(instance.department).name}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{instance.metrics.queries} queries</p>
-                      <p className="text-sm text-gray-600">Last updated: {new Date(instance.lastUpdated).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 
@@ -504,128 +436,34 @@ function App() {
                               {instance.status}
                             </span>
                           </div>
-                          <p className="text-gray-600 mb-2">{instance.description}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>Department: {deptInfo.name}</span>
-                            <span>•</span>
-                            <span>Updated: {new Date(instance.lastUpdated).toLocaleDateString()}</span>
+                          <p className="text-gray-600 mb-2">{instance.goal}</p>
+                          <div className="text-sm text-gray-500 space-y-1">
+                            <p><strong>Model:</strong> {instance.model}</p>
+                            <p><strong>Department:</strong> {deptInfo.name}</p>
+                            <p><strong>Documents:</strong> {instance.documents}</p>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <button className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100">
+                        <button
+                          onClick={() => handleEdit(instance)}
+                          className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+                        >
                           <Edit3 className="h-4 w-4" />
                         </button>
                         <button className="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50">
                           <Trash2 className="h-4 w-4" />
                         </button>
-                        {instance.status === 'active' ? (
-                          <button className="p-2 text-gray-400 hover:text-yellow-600 rounded-md hover:bg-yellow-50">
-                            <Pause className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <button className="p-2 text-gray-400 hover:text-green-600 rounded-md hover:bg-green-50">
-                            <Play className="h-4 w-4" />
-                          </button>
-                        )}
                       </div>
                     </div>
 
-                    {/* Expandable Details */}
+                    {/* Instructions Preview */}
                     <div className="border-t border-gray-200 pt-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Metrics */}
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                            <BarChart3 className="h-4 w-4 mr-2" />
-                            Performance Metrics
-                          </h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Queries:</span>
-                              <span className="font-medium">{instance.metrics.queries.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Accuracy:</span>
-                              <span className="font-medium">{instance.metrics.accuracy}%</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Avg Response:</span>
-                              <span className="font-medium">{instance.metrics.avgResponseTime}s</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Satisfaction:</span>
-                              <span className="font-medium">{instance.metrics.userSatisfaction}/5.0</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* RAG Configuration */}
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                            <Database className="h-4 w-4 mr-2" />
-                            RAG Configuration
-                          </h4>
-                          <div className="space-y-2 text-sm">
-                            <div>
-                              <span className="text-gray-600">Vector DB:</span>
-                              <span className="ml-2 font-medium">{instance.ragConfig.vectorDB}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Embedding:</span>
-                              <span className="ml-2 font-medium">{instance.ragConfig.embeddingModel}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Knowledge Bases:</span>
-                              <div className="ml-2 mt-1">
-                                {instance.ragConfig.knowledgeBase.map((kb, index) => (
-                                  <span key={index} className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-1 mb-1">
-                                    {kb}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* API & Portal Access */}
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                            <Key className="h-4 w-4 mr-2" />
-                            API & Portal Access
-                          </h4>
-                          <div className="space-y-2 text-sm">
-                            <div>
-                              <span className="text-gray-600">LLM Provider:</span>
-                              <span className="ml-2 font-medium">{instance.apiKeys.llmProvider}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-600">LLM Key:</span>
-                              <div className="flex items-center space-x-2">
-                                <span className="font-mono text-xs">
-                                  {showAPIKeys[`${instance.id}-llm`] ? instance.apiKeys.llmKey : '••••••••'}
-                                </span>
-                                <button
-                                  onClick={() => toggleAPIKeyVisibility(instance.id, 'llm')}
-                                  className="text-gray-400 hover:text-gray-600"
-                                >
-                                  {showAPIKeys[`${instance.id}-llm`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                </button>
-                              </div>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Portal Access:</span>
-                              <div className="ml-2 mt-1">
-                                {instance.portalAccess.map((access, index) => (
-                                  <span key={index} className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded mr-1 mb-1">
-                                    {access}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <h4 className="font-medium text-gray-900 mb-2">Instructions</h4>
+                      <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+                        {instance.instructions.substring(0, 200)}
+                        {instance.instructions.length > 200 && '...'}
+                      </p>
                     </div>
                   </div>
                 );
@@ -636,12 +474,7 @@ function App() {
               <div className="text-center py-12">
                 <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No AI instances found</h3>
-                <p className="text-gray-600 mb-4">
-                  {searchTerm || filterDepartment !== 'all'
-                    ? 'Try adjusting your search or filter criteria'
-                    : 'Get started by creating your first AI instance'
-                  }
-                </p>
+                <p className="text-gray-600 mb-4">Get started by creating your first AI instance</p>
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-md hover:bg-blue-800"
@@ -661,153 +494,153 @@ function App() {
               <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Knowledge Base Management</h3>
               <p className="text-gray-600 mb-4">Upload, manage, and organize knowledge bases for your AI instances</p>
-              <div className="space-y-4">
-                <button className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-md hover:bg-blue-800">
-                  <Upload className="h-4 w-4" />
-                  <span>Upload Documents</span>
-                </button>
-                <div className="text-sm text-gray-500">
-                  Coming soon: Document upload, vectorization status, embedding management
-                </div>
-              </div>
             </div>
           </div>
         )}
 
         {/* Settings Tab */}
         {activeTab === 'settings' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">System Configuration</h3>
-              
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Default Settings</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Default Vector Database
-                      </label>
-                      <select className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="pinecone">Pinecone</option>
-                        <option value="chroma">Chroma</option>
-                        <option value="weaviate">Weaviate</option>
-                        <option value="qdrant">Qdrant</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Default Embedding Model
-                      </label>
-                      <select className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="text-embedding-ada-002">OpenAI Ada-002</option>
-                        <option value="text-embedding-3-small">OpenAI Embedding-3-Small</option>
-                        <option value="text-embedding-3-large">OpenAI Embedding-3-Large</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Security Settings</h4>
-                  <div className="space-y-3">
-                    <label className="flex items-center">
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                      <span className="ml-2 text-sm text-gray-700">Require API key encryption</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                      <span className="ml-2 text-sm text-gray-700">Enable audit logging</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                      <span className="ml-2 text-sm text-gray-700">Require approval for new AI instances</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Monitoring & Alerts</h4>
-                  <div className="space-y-3">
-                    <label className="flex items-center">
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                      <span className="ml-2 text-sm text-gray-700">Email alerts for AI instance failures</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                      <span className="ml-2 text-sm text-gray-700">Weekly performance reports</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                      <span className="ml-2 text-sm text-gray-700">API usage threshold alerts</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <button className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-md hover:bg-blue-800">
-                  Save Settings
-                </button>
-              </div>
-            </div>
-
-            {/* Department Management */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Management</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {departments.map((dept) => (
-                  <div key={dept.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <div className={`${dept.color} w-8 h-8 rounded-full flex items-center justify-center text-white text-sm`}>
-                          {dept.icon}
-                        </div>
-                        <h4 className="font-medium text-gray-900">{dept.name}</h4>
-                      </div>
-                      <button className="text-gray-400 hover:text-gray-600">
-                        <Edit3 className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <p>Default APIs: {dept.defaultAPIs.length}</p>
-                      <p>Active AIs: {aiInstances.filter(ai => ai.department === dept.id && ai.status === 'active').length}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button className="mt-4 inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100">
-                <Plus className="h-4 w-4" />
-                <span>Add Department</span>
-              </button>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="text-center py-12">
+              <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Settings</h3>
+              <p className="text-gray-600">Configure system settings and preferences</p>
             </div>
           </div>
         )}
 
-        {/* Create Modal Placeholder */}
+        {/* Create/Edit Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
               <div className="p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New AI Instance</h2>
-                <p className="text-gray-600 mb-4">
-                  This feature is coming soon. You'll be able to create custom AI instances with:
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-sm text-gray-600 mb-6">
-                  <li>Department-specific configuration</li>
-                  <li>Custom RAG knowledge bases</li>
-                  <li>API key management</li>
-                  <li>Portal access controls</li>
-                  <li>Performance monitoring setup</li>
-                </ul>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                  >
-                    Close
-                  </button>
-                </div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                  {editingInstance ? 'Edit AI Instance' : 'Create New AI Instance'}
+                </h2>
+                
+                <form onSubmit={handleSaveInstance} className="space-y-6">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        AI Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="e.g., Hurricane Claims Specialist"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Department *
+                      </label>
+                      <select
+                        required
+                        value={formData.department}
+                        onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">Select Department</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>{dept.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Model *
+                    </label>
+                    <select
+                      required
+                      value={formData.model}
+                      onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                      <option value="claude-3">Claude 3</option>
+                      <option value="gemini-pro">Gemini Pro</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Goal/Purpose *
+                    </label>
+                    <textarea
+                      required
+                      value={formData.goal}
+                      onChange={(e) => setFormData(prev => ({ ...prev, goal: e.target.value }))}
+                      rows={3}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="What is this AI supposed to do? e.g., Process hurricane and weather-related claims efficiently"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Instructions/System Prompt *
+                    </label>
+                    <textarea
+                      required
+                      value={formData.instructions}
+                      onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
+                      rows={6}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter the system prompt/instructions for this AI..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Required Documents/Knowledge Base
+                    </label>
+                    <textarea
+                      value={formData.documents}
+                      onChange={(e) => setFormData(prev => ({ ...prev, documents: e.target.value }))}
+                      rows={3}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="List the documents this AI needs, e.g., hurricane-procedures.pdf, weather-claims-db.json, etc."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      API Key
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.apiKey}
+                      onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter API key if available"
+                    />
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={handleCloseModal}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-md hover:bg-blue-800"
+                    >
+                      {editingInstance ? 'Update AI' : 'Save AI'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
